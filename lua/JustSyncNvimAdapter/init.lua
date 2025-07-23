@@ -7,7 +7,7 @@ function M.on_save(file_path, opts)
 		return
 	end
 
-	local body = vim.fn.json_encode({ file_path = file_path })
+	local body = vim.fn.json_encode({ path = file_path })
 
 	local cmd = {
 		"curl",
