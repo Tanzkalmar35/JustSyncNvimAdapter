@@ -25,14 +25,19 @@ function M.on_save(file_path, opts)
 			if code == 0 then
 				vim.notify("JustSyncNvimAdapter: Request sent for " .. file_path, vim.log.levels.INFO)
 			else
-				vim.notify("JustSyncNvimAdapter: Request failed for " .. file_path .. " with code " .. code, vim.log.levels.ERROR)
+				-- Handle
+				vim.notify(
+					"JustSyncNvimAdapter: Request failed for " .. file_path .. " with code " .. code,
+					vim.log.levels.ERROR
+				)
 			end
 		end,
-		on_stderr = function(_, data)
-			if data and #data > 1 and data[1] ~= "" then
-				vim.notify("JustSyncNvimAdapter: Error sending request: " .. table.concat(data, "\n"), vim.log.levels.ERROR)
-			end
-		end,
+		-- on_stderr = function(_, data)
+		-- 	if data and #data > 1 and data[1] ~= "" then
+		-- Handle
+		-- vim.notify("JustSyncNvimAdapter: Error sending request: " .. table.concat(data, "\n"), vim.log.levels.ERROR)
+		-- 	end
+		-- end,
 	})
 end
 
