@@ -1,6 +1,14 @@
 local M = {}
 
+local state = {
+	is_active = false,
+}
+
 function M.on_save(file_path, opts)
+	if not state.is_active then
+		return
+	end
+
 	local url = opts.url
 	if not url then
 		vim.notify("JustSyncNvimAdapter: URL not configured", vim.log.levels.ERROR)
@@ -35,10 +43,21 @@ function M.on_save(file_path, opts)
 		-- on_stderr = function(_, data)
 		-- 	if data and #data > 1 and data[1] ~= "" then
 		-- Handle
-		-- vim.notify("JustSyncNvimAdapter: Error sending request: " .. table.concat(data, "\n"), vim.log.levels.ERROR)
+		-- vim.notify("JustSyncNvimAdapter: Error sending request: " .. table.concat(data, "
+		-- "), vim.log.levels.ERROR)
 		-- 	end
 		-- end,
 	})
+end
+
+function M.start()
+	state.is_active = true
+	vim.notify("JustSyncNvimAdapter started", vim.log.levels.INFO)
+end
+
+function M.stop()
+	state.is_active = false
+	vim.notify("JustSyncNvimAdapter stopped", vim.log.levels.INFO)
 end
 
 function M.setup(opts)
