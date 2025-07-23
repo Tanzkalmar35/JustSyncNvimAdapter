@@ -23,6 +23,7 @@ Plug 'Tanzkalmar35/JustSyncNvimAdapter.nvim'
 ```lua
 {
 	"Tanzkalmar35/JustSyncNvimAdapter",
+	branch = "master",
 	opts = {
 		url = "http://localhost:10000/send-sync",
 		method = "POST", -- optional: Defaults to POST
