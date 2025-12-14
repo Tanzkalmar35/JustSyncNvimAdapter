@@ -1,75 +1,64 @@
 local M = {}
 
-local state = {
-	is_active = false,
+-- Default configuration
+M.config = {
+    -- Default to assuming 'JustSync' is in your PATH. 
+    -- Users can change this in setup() to point to target/debug/justsync
+    cmd_path = "JustSync", 
+    log_level = vim.log.levels.INFO,
 }
 
-function M.on_save(file_path, opts)
-	if not state.is_active then
-		return
-	end
+-- Internal: Launches the binary as an LSP
+local function launch_client(args)
+    -- 1. Find the project root (The binary needs this for the handshake)
+    -- We look for git, Cargo.toml, or package.json. Fallback to current dir.
+    local root_dir = vim.fs.dirname(vim.fs.find({'.git', 'Cargo.toml', 'package.json'}, { upward = true })[1])
+    if not root_dir then
+        root_dir = vim.fn.getcwd()
+    end
 
-	local url = opts.url
-	if not url then
-		vim.notify("JustSyncNvimAdapter: URL not configured", vim.log.levels.ERROR)
-		return
-	end
+    -- 2. Build the command: e.g. ["justsync", "--host"]
+    local cmd = { M.config.cmd_path }
+    for _, arg in ipairs(args) do
+        table.insert(cmd, arg)
+    end
 
-	local body = vim.fn.json_encode({ path = file_path })
+    -- 3. Start the LSP Client
+    local client_id = vim.lsp.start({
+        name = "justsync",
+        cmd = cmd,
+        root_dir = root_dir,
+        -- Standard capabilities (supports incremental sync)
+        capabilities = vim.lsp.protocol.make_client_capabilities(),
+        
+        -- Optional: Hook to confirm it started
+        on_attach = function(client, bufnr)
+            vim.notify("JustSync Attached (" .. args[1] .. ")", M.config.log_level)
+        end,
+    })
 
-	local cmd = {
-		"curl",
-		"-X",
-		opts.method or "POST",
-		"-H",
-		"Content-Type: application/json",
-		"-d",
-		body,
-		url,
-	}
-
-	vim.fn.jobstart(cmd, {
-		on_exit = function(_, code)
-			if code == 0 then
-				vim.notify("JustSyncNvimAdapter: Request sent for " .. file_path, vim.log.levels.INFO)
-			else
-				-- Handle
-				vim.notify(
-					"JustSyncNvimAdapter: Request failed for " .. file_path .. " with code " .. code,
-					vim.log.levels.ERROR
-				)
-			end
-		end,
-		-- on_stderr = function(_, data)
-		-- 	if data and #data > 1 and data[1] ~= "" then
-		-- Handle
-		-- vim.notify("JustSyncNvimAdapter: Error sending request: " .. table.concat(data, "
-		-- "), vim.log.levels.ERROR)
-		-- 	end
-		-- end,
-	})
+    if not client_id then
+        vim.notify("JustSync: Failed to start binary at " .. M.config.cmd_path, vim.log.levels.ERROR)
+    end
 end
 
-function M.start()
-	state.is_active = true
-	vim.notify("JustSyncNvimAdapter started", vim.log.levels.INFO)
+-- Public: Start Hosting
+function M.host()
+    launch_client({ "--host" })
 end
 
-function M.stop()
-	state.is_active = false
-	vim.notify("JustSyncNvimAdapter stopped", vim.log.levels.INFO)
+-- Public: Join a session
+function M.join(ip)
+    if not ip or ip == "" then
+        vim.notify("JustSync: IP address required to join.", vim.log.levels.ERROR)
+        return
+    end
+    launch_client({ "--join", ip })
 end
 
+-- Setup function for configuration
 function M.setup(opts)
-	local group = vim.api.nvim_create_augroup("MyHttpOnSave", { clear = true })
-	vim.api.nvim_create_autocmd("BufWritePost", {
-		group = group,
-		pattern = opts.pattern or "*",
-		callback = function(args)
-			M.on_save(vim.api.nvim_buf_get_name(args.buf), opts)
-		end,
-		desc = "HTTP call on save",
-	})
+    M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 end
 
 return M
