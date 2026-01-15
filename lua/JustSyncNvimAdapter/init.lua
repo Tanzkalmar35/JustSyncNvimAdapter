@@ -1,9 +1,23 @@
 local M = {}
 
 M.config = {
-    cmd_path = "JustSync", 
+    cmd_path = "justsync", 
     log_level = vim.log.levels.INFO,
 }
+
+M.autocmd_registered = false
+
+local function setup_buffer_autocommands(bufnr)
+    vim.api.nvim_buf_set_option(bufnr, 'autoread', true)
+    local group = vim.api.nvim_create_augroup("JustSyncAutoread-" .. bufnr, { clear = true })
+    vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "FocusGained", "BufEnter" }, {
+        group = group,
+        buffer = bufnr,
+        callback = function() 
+            vim.cmd("checktime") 
+        end
+    })
+end
 
 local function launch_client(args, mode_name)
     local root_dir = vim.fs.dirname(vim.fs.find({'.git', 'Cargo.toml', 'package.json'}, { upward = true })[1])
@@ -17,38 +31,40 @@ local function launch_client(args, mode_name)
     local cmd = { M.config.cmd_path }
     for _, arg in ipairs(args) do table.insert(cmd, arg) end
 
-    vim.lsp.start({
+    local client_id = vim.lsp.start({
         name = "justsync",
         cmd = cmd,
         root_dir = root_dir,
         capabilities = capabilities,
-        
-        flags = {
-            debounce_text_changes = 150, -- Wait 150ms before sending
-        },
-
+        flags = { debounce_text_changes = 150 },
         on_attach = function(client, bufnr)
-            vim.notify("JustSync (" .. mode_name .. ") connected!", M.config.log_level)
-            
+            setup_buffer_autocommands(bufnr)
+            vim.notify("JustSync attached! (" .. mode_name .. ")", M.config.log_level)
             if mode_name == "Host" then
-                vim.notify("Use :LspInfo to find the key", vim.log.levels.WARN)
+                vim.notify("Check :LspLog for Token", vim.log.levels.WARN)
             end
-
-            -- Activate autoread for this buffer
-            vim.api.nvim_buf_set_option(bufnr, 'autoread', true)
-
-            -- Creating an autocmd to automatically check for changes
-            local group = vim.api.nvim_create_augroup("JustSyncAutoread", { clear = false })
-            vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI", "FocusGained", "BufEnter" }, {
-                group = group,
-                buffer = bufnr,
-                callback = function()
-                    -- checks timestamp and reloads
-                    vim.cmd("checktime") 
-                end
-            })
         end,
     })
+
+    if not M.autocmd_registered then
+        local grp = vim.api.nvim_create_augroup("JustSyncAutoAttach", { clear = true })
+        
+        vim.api.nvim_create_autocmd("BufEnter", {
+            group = grp,
+            pattern = "*",
+            callback = function(ev)
+                local clients = vim.lsp.get_clients({ name = "justsync" })
+                
+                if #clients > 0 then
+                    local client = clients[1]
+                    vim.lsp.buf_attach_client(ev.buf, client.id)
+                    
+                    setup_buffer_autocommands(ev.buf)
+                end
+            end
+        })
+        M.autocmd_registered = true
+    end
 end
 
 function M.host()
