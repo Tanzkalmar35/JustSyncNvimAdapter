@@ -12,7 +12,7 @@ It launches the `justsync` binary as a standard LSP client for real-time collabo
     "Tanzkalmar35/JustSyncNvimAdapter",
     opts = {
         -- Optional: Point to your binary if it's not in PATH
-        cmd_path = "/home/user/code/justsync/target/debug/justsync"
+        cmd_path = "/home/user/code/justsync/target/release/justsync"
     },
     -- Load automatically or on command
     cmd = { "JustSyncHost", "JustSyncJoin" },
